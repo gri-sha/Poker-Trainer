@@ -1,4 +1,6 @@
 import random
+import joblib
+import os
 import copy
 
 class Card:
@@ -41,18 +43,10 @@ class Player:
         hole_cards_str = ', '.join(str(card) for card in self.hole_cards)
         return f'{self.name} | chips: {self.chips} | {hole_cards_str} | '
 
-    def ask_action(self):
+    def ask_action(self, act=0, bet=0):
         # Returns a tuple (action, bet)
-        action = input(f'{self} action: ')
-        bet = 0
-
-        if action == 'raise':
-            bet = int(input(f'{self} bet: '))
-        elif action == 'call':
-            if self.game is not None:
-                bet = max(self.game.user.bet, self.game.bot.bet)
-
-        return action, bet
+        # In base case returns fold
+        return act, bet
 
     def make_bet(self, amount):
         if amount >= self.chips:
@@ -82,13 +76,15 @@ class Bot(Player):
         # TAG - tight aggressive (plays only strongest hands, raises actively)
         self.style = "LAG"
 
-        # TODO: CFR algo for bot
         self.history = ''
         self.info_set = ''
         self.tree_map = self.load_strategies()
 
     def load_strategies(self):
-        return {}
+        if os.path.exists("HUNL-TreeMap.joblib"):
+            return joblib.load("HUNL-TreeMap.joblib")
+        else:
+            return {}
 
     def update_info_set(self):
         sorted_cards = sorted(self.hole_cards + self.game.community_cards, key=lambda card: (card.rank, card.suit))
@@ -116,14 +112,22 @@ class Bot(Player):
         }
 
         if self.info_set in self.tree_map:
-            strategy = self.tree_map[self.info_set]
+            obt_strategy = self.tree_map[self.info_set]
+            strategy = [
+                obt_strategy[0],
+                obt_strategy[1],
+                obt_strategy[2],
+                obt_strategy[3] * 0.5,
+                obt_strategy[3] * 0.3,
+                obt_strategy[3] * 0.15,
+                obt_strategy[3] * 0.05,
+            ]
         else:
             strategy = base_strategies[self.style]
 
         while True:
             # Returns a list of 1 element, so we need an index at the end
             action = random.choices(actions, weights=strategy)[0]
-            # print(action)
             try:
                 # Remove unnecessary folds first
                 if action[0] == 'fold' and self.bet == self.game.user.bet:
@@ -171,7 +175,17 @@ class User(Player):
         self.action_bet = None
 
     def ask_action(self):
-        return super().ask_action()
+        # Returns a tuple (action, bet)
+        action = input(f'{self} action: ')
+        bet = 0
+
+        if action == 'raise':
+            bet = int(input(f'{self} bet: '))
+        elif action == 'call':
+            if self.game is not None:
+                bet = max(self.game.user.bet, self.game.bot.bet)
+
+        return action, bet
 
 
 class Game:
@@ -326,9 +340,6 @@ class Game:
     def swap_positions(self):
         self.sb_pos, self.bb_pos = self.bb_pos, self.sb_pos
 
-    def update_after_action(self, player):
-        pass
-
     def bidding(self, preflop=False):
         """
         :param preflop: determines game stage
@@ -353,13 +364,11 @@ class Game:
                     player.make_bet(self.big_blind - player.bet)
                     print(f'{opponent.name} is already all-in')
                     self.bot.info_set += 'c'
-                    self.update_after_action(player)
                     return True
                 elif act == 'fold':
                     player.fold = True
                     print(f'{player.name} has folded')
                     self.bot.info_set += 'p'
-                    self.update_after_action(player)
                     return False
                 else:
                     raise ValueError('Invalid action')
@@ -388,7 +397,6 @@ class Game:
                         player.fold = True
                         print(f'{player.name} has folded')
                         self.bot.info_set += 'p'
-                        self.update_after_action(player)
                         return False
 
                     elif act == 'check':
@@ -396,7 +404,6 @@ class Game:
                             raise ValueError('Invalid action')
                         else:
                             self.bot.info_set += 'p'
-                            self.update_after_action(player)
                             if asked >= 2:
                                 return True
 
@@ -404,7 +411,6 @@ class Game:
                         if player.bet < opponent.bet:
                             self.bot.info_set += 'c'
                             player.make_bet(opponent.bet - player.bet)
-                            self.update_after_action(player)
                         else:
                             raise ValueError('Invalid action')
                         if asked >= 2:
@@ -673,8 +679,16 @@ class Game:
         return winner
 
 
+def create_hand(cards: list[str]) -> list[Card]:
+    res = []
+    for card in cards:
+        suit = ['♣', '♦', '♥', '♠'].index(card[-1])
+        rank_str = card[:-1]
+        rank = int(rank_str) if rank_str.isdigit() else {'J': 11, 'Q': 12, 'K': 13, 'A': 14}[rank_str]
+        res.append(Card(rank=rank, suit=suit))
+    return sorted(res, key=lambda x: x.rank)
+
+
 if __name__ == '__main__':
     game = Game()
     game.play()
-
-    
