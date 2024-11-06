@@ -1,0 +1,10 @@
+{
+    "title": "Poker App",
+    "description": "A simple application for HUNL Texas Hold'em.",
+    "dependencies": {
+        "packages": [
+            "numpy",
+            "joblib"
+        ]
+    }
+  }

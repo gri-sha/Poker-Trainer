@@ -1,196 +1,14 @@
 import random
-import joblib
-import os
 import copy
-
-class Card:
-    def __init__(self, rank, suit):
-        self.rank = rank
-        # 0 - clubs (♣), 1 - diamonds (♦), 2 - hearts (♥), 3 - spades (♠)
-        self.suit = suit
-        # self.front_face = f'images/cards/{self.rank}_of_{["clubs", "diamonds", "hearts", "spades"][self.suit]}.png'
-        # self.back_face = f'images/cards/red_back'
-
-    def __str__(self):
-        suits_symbols = ['♣', '♦', '♥', '♠']
-        ranks_symbols = {11: 'J', 12: 'Q', 13: 'K', 14: 'A'}
-        rank_str = ranks_symbols.get(self.rank, str(self.rank))
-        suit_str = suits_symbols[self.suit]
-        return f"{rank_str}{suit_str}"
-
-
-class Deck(list):
-    def __init__(self):
-        super().__init__()
-        for suit in range(4):
-            for rank in range(2, 15):
-                self.append(Card(rank, suit))
-
-    def __str__(self):
-        return '[' + ', '.join(str(card) for card in self) + ']'
-
-
-class Player:
-    def __init__(self):
-        self.name = 'Player'
-        self.game = None
-        self.chips = 0
-        self.bet = 0
-        self.hole_cards = []
-        self.fold = False
-
-    def __str__(self):
-        hole_cards_str = ', '.join(str(card) for card in self.hole_cards)
-        return f'{self.name} | chips: {self.chips} | {hole_cards_str} | '
-
-    def ask_action(self, act=0, bet=0):
-        # Returns a tuple (action, bet)
-        # In base case returns fold
-        return act, bet
-
-    def make_bet(self, amount):
-        if amount >= self.chips:
-            # All in case
-            if self.chips > 0:
-                self.bet += self.chips
-                self.game.pot += self.chips
-                self.chips = 0
-            else:
-                raise ValueError('No chips left to do the bet')
-        else:
-            # Usual case
-            self.chips -= amount
-            self.bet += amount
-            self.game.pot += amount
-
-
-class Bot(Player):
-    def __init__(self):
-        super().__init__()
-        self.name = 'Bot'
-
-        # Possible styles:
-        # LP - loose passive (plays every hand, calls every bet)
-        # TP - tight passive (plays only strongest hands, calls every bet)
-        # LAG - loose aggressive (plays every hand, raises actively)
-        # TAG - tight aggressive (plays only strongest hands, raises actively)
-        self.style = "LAG"
-
-        self.history = ''
-        self.info_set = ''
-        self.tree_map = self.load_strategies()
-
-    def load_strategies(self):
-        if os.path.exists("HUNL-TreeMap.joblib"):
-            return joblib.load("HUNL-TreeMap.joblib")
-        else:
-            return {}
-
-    def update_info_set(self):
-        sorted_cards = sorted(self.hole_cards + self.game.community_cards, key=lambda card: (card.rank, card.suit))
-        self.info_set = ''.join(str(card) for card in sorted_cards)
-
-    def ask_action(self):
-        # print(self.info_set)
-
-        fold = ('fold', 0, 'p')
-        check = ('check', 0, 'p')
-        call = ('call', self.game.user.bet - self.bet, 'c')
-        raise_1bb = ('raise', (self.game.user.bet - self.bet) + self.game.big_blind, 'b')
-        raise_2bb = ('raise', (self.game.user.bet - self.bet) + self.game.big_blind * 2, 'b')
-        raise_4bb = ('raise', (self.game.user.bet - self.bet) + self.game.big_blind * 4, 'b')
-        all_in = ('raise', self.chips, 'b')
-
-        actions = [fold, check, call, raise_1bb, raise_2bb, raise_4bb, all_in]
-
-        base_strategies = {
-            'Optimal': [0.2, 0.3, 0.2, 0.14, 0.1, 0.05, 0.01],
-            'LAG': [0.2, 0.2, 0.2, 0.15, 0.1, 0.1, 0.05],
-            'TAG': [0.05, 0.2, 0.1, 0.25, 0.2, 0.15, 0.05],
-            'TP': [0.1, 0.25, 0.4, 0.1, 0.05, 0.05, 0.05],
-            'LP': [0.1, 0.3, 0.4, 0.1, 0.05, 0.03, 0.02]
-        }
-
-        if self.info_set in self.tree_map:
-            obt_strategy = self.tree_map[self.info_set]
-            strategy = [
-                obt_strategy[0],
-                obt_strategy[1],
-                obt_strategy[2],
-                obt_strategy[3] * 0.5,
-                obt_strategy[3] * 0.3,
-                obt_strategy[3] * 0.15,
-                obt_strategy[3] * 0.05,
-            ]
-        else:
-            strategy = base_strategies[self.style]
-
-        while True:
-            # Returns a list of 1 element, so we need an index at the end
-            action = random.choices(actions, weights=strategy)[0]
-            try:
-                # Remove unnecessary folds first
-                if action[0] == 'fold' and self.bet == self.game.user.bet:
-                    action = check
-                self.validate_action(action)
-                print(f'{self}: {action}')
-                self.info_set += action[2]
-                return action[0], action[1]
-            except ValueError:
-                continue
-
-    def validate_action(self, action):
-        act, bet = action[0], action[1]
-        opponent = self.game.user
-
-        if act == 'fold':
-            return
-
-        if act == 'check':
-            if self.bet != opponent.bet:
-                raise ValueError('Invalid action')
-            return
-
-        if act == 'call':
-            if self.bet >= opponent.bet:
-                raise ValueError('Invalid action')
-            return
-
-        if act == 'raise':
-            if opponent.chips == 0:
-                raise ValueError('Invalid action')
-            if not ((self.game.min_bet <= bet < self.chips and opponent.bet - self.bet < bet) or
-                    (bet == self.chips and opponent.bet - self.bet < bet)):
-                raise ValueError('Invalid action')
-            return
-
-        raise ValueError('Invalid action')
-
-
-class User(Player):
-    def __init__(self):
-        super().__init__()
-        self.name = 'Billy'
-        self.action = None
-        self.action_bet = None
-
-    def ask_action(self):
-        # Returns a tuple (action, bet)
-        action = input(f'{self} action: ')
-        bet = 0
-
-        if action == 'raise':
-            bet = int(input(f'{self} bet: '))
-        elif action == 'call':
-            if self.game is not None:
-                bet = max(self.game.user.bet, self.game.bot.bet)
-
-        return action, bet
-
+from cards import *
+from players import *
 
 class Game:
-    def __init__(self):
+    def __init__(self, web=False):
+        # Game version
+        self.web_version = web
 
+        # Game parameters
         self.starting_chips = 5000
         self.small_blind = 250
         self.playing_style = 'Optimal'
@@ -229,43 +47,38 @@ class Game:
 
 
     def play(self):
+        if self.web_version:
+            pass
+        else:
         # Messages about game initialization
         # print(f':::: New Game: {datetime.now().strftime("%Y-%m-%d-%H-%M")}')
         # print(f':::: Bot Playing Style: {self.bot.style}')
 
-        i = 1
-        while self.user.chips > 0 and self.bot.chips > 0:
-            print(f':::: Hand #{i}')
-            print()
-            # Preflop
-            self.players[self.sb_pos].make_bet(self.small_blind)
-            print(f':::: SB: {self.players[self.sb_pos].name}')
-
-            self.players[self.bb_pos].make_bet(self.big_blind)
-            print(f':::: BB: {self.players[self.bb_pos].name}')
-
-            self.deal_hole_cards()
-            self.bot.update_info_set()
-            print(f':::: Dealing hole cards: {self.user.name} - {[str(card) for card in self.user.hole_cards]}, {self.bot.name} - {[str(card) for card in self.bot.hole_cards]}')
-            print()
-
-
-            print(f':::: Preflop')
-
-            if self.bidding(preflop=True):
-                self.deal_community_cards(3)
-                self.bot.update_info_set()
-
+            i = 1
+            while self.user.chips > 0 and self.bot.chips > 0:
+                print(f':::: Hand #{i}')
                 print()
-                print(f':::: Flop: {[str(card) for card in self.community_cards]}')
+                # Preflop
+                self.players[self.sb_pos].make_bet(self.small_blind)
+                print(f':::: SB: {self.players[self.sb_pos].name}')
 
-                if self.bidding():
-                    self.deal_community_cards(1)
+                self.players[self.bb_pos].make_bet(self.big_blind)
+                print(f':::: BB: {self.players[self.bb_pos].name}')
+
+                self.deal_hole_cards()
+                self.bot.update_info_set()
+                print(f':::: Dealing hole cards: {self.user.name} - {[str(card) for card in self.user.hole_cards]}, {self.bot.name} - {[str(card) for card in self.bot.hole_cards]}')
+                print()
+
+
+                print(f':::: Preflop')
+
+                if self.bidding(preflop=True):
+                    self.deal_community_cards(3)
                     self.bot.update_info_set()
 
-
                     print()
-                    print(f':::: Turn: {[str(card) for card in self.community_cards]}')
+                    print(f':::: Flop: {[str(card) for card in self.community_cards]}')
 
                     if self.bidding():
                         self.deal_community_cards(1)
@@ -273,44 +86,52 @@ class Game:
 
 
                         print()
-                        print(f':::: River: {[str(card) for card in self.community_cards]}')
+                        print(f':::: Turn: {[str(card) for card in self.community_cards]}')
 
                         if self.bidding():
+                            self.deal_community_cards(1)
+                            self.bot.update_info_set()
+
+
                             print()
-                            print(":::: Showdown:")
-                            self.winner = self.determine_winner()
+                            print(f':::: River: {[str(card) for card in self.community_cards]}')
+
+                            if self.bidding():
+                                print()
+                                print(":::: Showdown:")
+                                self.winner = self.determine_winner()
+
+                            else:
+                                self.winner = self.post_fold_determine_winner()
 
                         else:
                             self.winner = self.post_fold_determine_winner()
-
                     else:
                         self.winner = self.post_fold_determine_winner()
+
                 else:
                     self.winner = self.post_fold_determine_winner()
 
-            else:
-                self.winner = self.post_fold_determine_winner()
+                if self.winner is not None:
+                    print(f':::: Winner: {self.winner.name}')
+                    self.winner.chips += self.pot
+                else:
+                    print()
+                    print(f':::: It is a draw')
+                    self.user.chips += self.pot//2
+                    self.bot.chips += self.pot//2
 
-            if self.winner is not None:
-                print(f':::: Winner: {self.winner.name}')
-                self.winner.chips += self.pot
-            else:
+                print(f':::: End of the hand: {self.user.name} - {self.user.chips} chips | {self.bot.name} - {self.bot.chips} chips')
                 print()
-                print(f':::: It is a draw')
-                self.user.chips += self.pot//2
-                self.bot.chips += self.pot//2
-
-            print(f':::: End of the hand: {self.user.name} - {self.user.chips} chips | {self.bot.name} - {self.bot.chips} chips')
-            print()
-            self.swap_positions()
-            self.clear()
-            i += 1
+                self.swap_positions()
+                self.clear()
+                i += 1
 
 
-        if self.user.chips <= 0:
-            print(":::: Game over! You ran out of chips.")
-        elif self.bot.chips <= 0:
-            print(":::: Congratulations! You defeated the bot.")
+            if self.user.chips <= 0:
+                print(":::: Game over! You ran out of chips.")
+            elif self.bot.chips <= 0:
+                print(":::: Congratulations! You defeated the bot.")
 
     def clear(self):
         self.community_cards = []
@@ -340,7 +161,7 @@ class Game:
     def swap_positions(self):
         self.sb_pos, self.bb_pos = self.bb_pos, self.sb_pos
 
-    def bidding(self, preflop=False):
+    def bidding(self, preflop=False, web=False):
         """
         :param preflop: determines game stage
         :return: False if fold, True otherwise
@@ -358,7 +179,7 @@ class Game:
 
             elif opponent.chips == 0:
                 print(f':::: {self.user.name} bet: {self.user.bet} | {self.bot.name} bet: {self.bot.bet} | total: {self.pot}')
-                act, bet = player.ask_action()
+                act, bet = player.ask_action(self.web_version)
                 if act == 'call':
                     # Bet the full big blind
                     player.make_bet(self.big_blind - player.bet)
@@ -387,7 +208,7 @@ class Game:
         while True:
             print(f':::: {self.user.name} bet: {self.user.bet} | {self.bot.name} bet: {self.bot.bet} | total: {self.pot}')
 
-            act, bet = player.ask_action()
+            act, bet = player.ask_action(self.web_version)
             prop_act = False
             asked += 1
 
@@ -436,7 +257,7 @@ class Game:
                     prop_act = True
                 except:
                     print("Invalid action. Please try again.")
-                    act, bet = player.ask_action()
+                    act, bet = player.ask_action(self.web_version)
 
             # Ask next
             i = not i
@@ -553,6 +374,8 @@ class Game:
         return None
 
     def straight_flush(self, cards):
+        if len(cards) == 0:
+            return None
         # Cards are sorted by ascending rank
         # The 'wheel' case: A2345
         cards2 = copy.deepcopy(cards)
@@ -677,17 +500,6 @@ class Game:
                         winner = self.bot
 
         return winner
-
-
-def create_hand(cards: list[str]) -> list[Card]:
-    res = []
-    for card in cards:
-        suit = ['♣', '♦', '♥', '♠'].index(card[-1])
-        rank_str = card[:-1]
-        rank = int(rank_str) if rank_str.isdigit() else {'J': 11, 'Q': 12, 'K': 13, 'A': 14}[rank_str]
-        res.append(Card(rank=rank, suit=suit))
-    return sorted(res, key=lambda x: x.rank)
-
 
 if __name__ == '__main__':
     game = Game()
