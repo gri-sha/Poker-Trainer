@@ -1,4 +1,6 @@
 class Card:
+    suits_symbols = ['♣', '♦', '♥', '♠']
+    ranks_symbols = {11: 'J', 12: 'Q', 13: 'K', 14: 'A'}
     def __init__(self, rank, suit):
         self.rank = rank
         # 0 - clubs (♣), 1 - diamonds (♦), 2 - hearts (♥), 3 - spades (♠)
@@ -7,10 +9,8 @@ class Card:
         # self.back_face = f'images/cards/red_back'
 
     def __str__(self):
-        suits_symbols = ['♣', '♦', '♥', '♠']
-        ranks_symbols = {11: 'J', 12: 'Q', 13: 'K', 14: 'A'}
-        rank_str = ranks_symbols.get(self.rank, str(self.rank))
-        suit_str = suits_symbols[self.suit]
+        rank_str = self.ranks_symbols.get(self.rank, str(self.rank))
+        suit_str = self.suits_symbols[self.suit]
         return f"{rank_str}{suit_str}"
 
 

@@ -1,6 +1,6 @@
 import os
 import random
-import joblib
+# import joblib
 
 class Player:
     def __init__(self):
@@ -42,7 +42,7 @@ class User(Player):
         self.action = None
         self.action_bet = None
 
-    def ask_action(self, web=False, *args, **kwargs):
+    def ask_action(self):
         # Returns a tuple (action, bet)
             action = input(f'{self} action: ')
             bet = 0
@@ -84,7 +84,7 @@ class Bot(Player):
     def __str__(self):
         return super().__str__() + self.info_set + ' |'
 
-    def ask_action(self, web=False, *args, **kwargs):
+    def ask_action(self):
         # print(self.info_set)
 
         fold = ('fold', 0, 'p')

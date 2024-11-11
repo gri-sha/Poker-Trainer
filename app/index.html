@@ -5,23 +5,21 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>♠️♦️ Texas Hold'em Poker ♣️♥️</title>
     <link rel="stylesheet" href="styles.css">
-    <link rel="stylesheet" href="https://pyscript.net/latest/pyscript.css">
-    <script defer src="https://pyscript.net/latest/pyscript.js"></script>
 </head>
 <body>
     <div class="table">
 
-        <div class="player" id="player1">
+        <div class="player" id="bot">
             <div class="player-name">Billy</div>
-            <div class="player-chips">Chips: $<span class="chips-amount">1000</span></div>
-            <div class="player-chips">Bet: $<span class="chips-amount">750</span></div>
+            <div class="player-chips">Chips: $<span class="chips-amount" id="bot-chips">4500</span></div>
+            <div class="player-chips">Bet: $<span class="chips-amount" id="bot-bet">500</span></div>
             <div class="player-cards">
-                <div class="card" id="player1-card1"></div>
-                <div class="card" id="player1-card2"></div>
+                <div class="card" id="bot-card1"></div>
+                <div class="card" id="bot-card2"></div>
             </div>
         </div>
 
-        <div class="pot">Pot: $<span id="pot-amount">0</span></div>
+        <div class="pot">Pot: $<span id="pot-amount">1000</span></div>
 
         <div class="community-cards">
             <div class="card" id="card1"></div>
@@ -31,13 +29,13 @@
             <div class="card" id="card5"></div>
         </div>
 
-        <div class="player" id="player2">
+        <div class="player" id="user">
             <div class="player-name">You</div>
-            <div class="player-chips">Chips: $<span class="chips-amount">1000</span></div>
-            <div class="player-chips">Bet: $<span class="chips-amount">250</span></div>
+            <div class="player-chips">Chips: $<span class="chips-amount" id="user-chips">4750</span></div>
+            <div class="player-chips">Bet: $<span class="chips-amount" id="user-bet">250</span></div>
             <div class="player-cards">
-                <div class="card" id="player2-card1"></div>
-                <div class="card" id="player2-card2"></div>
+                <div class="card" id="user-card1"></div>
+                <div class="card" id="user-card2"></div>
             </div>
         </div>
 
@@ -51,13 +49,12 @@
                 </div>
                 <div class="slider-panel">
                     <label class="bet-amount-label" for="bet-amount">Bet Amount: $<span id="bet-amount-display">0</span></label>
-                    <input type="range" id="bet-amount" min="0" max="1000" value="0" step="10">
+                    <input type="range" id="bet-amount" min="0" max="1000" value="500" step="250">
                 </div>
             </div>
         </div>
-
-        <script type="py" src="./script.py" config="./pyscript.json"></script>
-
     </div>
+    <script src="gameScript.js"></script>
+    <script src="betSlider.js"></script>
 </body>
 </html>
