@@ -335,7 +335,7 @@ class Game {
         return shuffledDeck.slice(0, count);
     }
 
-    displayCards() {
+    displayCards(showBotCards=false) {
         const suitColors = {
             0: 'black', // Clubs
             1: 'red',   // Diamonds
@@ -350,10 +350,12 @@ class Game {
         this.setCardDisplay(userCard2, this.user.holeCards[1]);
 
         // Display bot cards
-        const botCard1 = document.getElementById('bot-card1');
-        const botCard2 = document.getElementById('bot-card2');
-        this.setCardDisplay(botCard1, this.bot.holeCards[0]);
-        this.setCardDisplay(botCard2, this.bot.holeCards[1]);
+        if (showBotCards) {
+            const botCard1 = document.getElementById('bot-card1');
+            const botCard2 = document.getElementById('bot-card2');
+            this.setCardDisplay(botCard1, this.bot.holeCards[0]);
+            this.setCardDisplay(botCard2, this.bot.holeCards[1]);
+        }
     
         // Display community cards
         const webCommunityCards = [
@@ -384,6 +386,7 @@ class Game {
 
         element.textContent = card.toString();
         element.style.color = suitColor;
+        element.style.backgroundColor = 'white';
     }
 
     displayChipsBetsPot() {
@@ -939,9 +942,8 @@ class Game {
 const game = new Game();
 // game.play();
 
-game.user.holeCards = createHand(['7♣' ,'K♥']);
-game.bot.holeCards = createHand(['7♥' ,'K♦']);
-game.communityCards = game.getRandomCards(game.deck.cards, 5);
-console.log(game.user.toString(), game.bot.toString());
+game.user.holeCards = game.getRandomCards(game.deck.cards, 2);
+game.bot.holeCards = game.getRandomCards(game.deck.cards, 2);
+game.communityCards = game.getRandomCards(game.deck.cards, 4);
 game.displayCards();
 game.displayChipsBetsPot();
