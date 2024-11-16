@@ -344,17 +344,17 @@ class Game {
         };
 
         // Display user cards
-        const userCard1 = document.getElementById('user-card1');
-        const userCard2 = document.getElementById('user-card2');
-        this.setCardDisplay(userCard1, this.user.holeCards[0]);
-        this.setCardDisplay(userCard2, this.user.holeCards[1]);
+        const userCards = [document.getElementById('user-card1'), document.getElementById('user-card2')];
+        for (let i=0; i<this.user.holeCards.length; i++) {
+            this.setCardDisplay(userCards[i], this.user.holeCards[i]);
+        }
 
         // Display bot cards
         if (showBotCards) {
-            const botCard1 = document.getElementById('bot-card1');
-            const botCard2 = document.getElementById('bot-card2');
-            this.setCardDisplay(botCard1, this.bot.holeCards[0]);
-            this.setCardDisplay(botCard2, this.bot.holeCards[1]);
+            const botCards = [document.getElementById('bot-card1'), document.getElementById('bot-card2')];
+            for (let i=0; i<this.bot.holeCards.length; i++) {
+                this.setCardDisplay(botCards[i], this.bot.holeCards[i]);
+            }
         }
     
         // Display community cards
@@ -370,10 +370,10 @@ class Game {
             this.setCardDisplay(webCommunityCards[i], this.communityCards[i]);
         }
     
-        // Clear any remaining community card displays
-        for (let i = this.communityCards.length; i < webCommunityCards.length; i++) {
-            webCommunityCards[i].textContent = '';
-        }
+        // // Clear any remaining community card displays
+        // for (let i = this.communityCards.length; i < webCommunityCards.length; i++) {
+        //     webCommunityCards[i].textContent = '';
+        // }
     }
 
     setCardDisplay(element, card) {
@@ -387,6 +387,25 @@ class Game {
         element.textContent = card.toString();
         element.style.color = suitColor;
         element.style.backgroundColor = 'white';
+    }
+
+    resetDisplayCards() {
+        const cards = [
+            document.getElementById('user-card1'),
+            document.getElementById('user-card2'),
+            document.getElementById('bot-card1'), 
+            document.getElementById('bot-card2'), 
+            document.getElementById('card1'),
+            document.getElementById('card2'),
+            document.getElementById('card3'),
+            document.getElementById('card4'),
+            document.getElementById('card5')
+        ];
+
+        for (let i=0; i < cards.length; i++) {
+            cards[i].textContent = '🎭';
+            cards[i].style.backgroundColor = '#FF9800';
+        }
     }
 
     displayChipsBetsPot() {
@@ -405,6 +424,8 @@ class Game {
         while (this.user.chips > 0 && this.bot.chips > 0) {
             console.log(`:::: Hand #${i}`);
             console.log();
+            this.resetDisplayCards();
+            this.displayChipsBetsPot();
     
             // Preflop
             this.players[this.sbPos].makeBet(this.smallBlind);
@@ -417,6 +438,8 @@ class Game {
             this.bot.updateInfoSet();
             console.log(`:::: Dealing hole cards: ${this.user.name} - ${this.user.holeCards.map(card => card.toString())}, ${this.bot.name} - ${this.bot.holeCards.map(card => card.toString())}`);
             console.log();
+            this.displayCards();
+            this.displayChipsBetsPot();
     
             console.log(`:::: Preflop`);
     
@@ -426,6 +449,8 @@ class Game {
     
                 console.log();
                 console.log(`:::: Flop: ${this.communityCards.map(card => card.toString())}`);
+                this.displayCards();
+                this.displayChipsBetsPot();
     
                 if (await this.bidding()) {
                     this.dealCommunityCards(1);
@@ -433,6 +458,8 @@ class Game {
     
                     console.log();
                     console.log(`:::: Turn: ${this.communityCards.map(card => card.toString())}`);
+                    this.displayCards();
+                    this.displayChipsBetsPot();
     
                     if (await this.bidding()) {
                         this.dealCommunityCards(1);
@@ -440,6 +467,8 @@ class Game {
     
                         console.log();
                         console.log(`:::: River: ${this.communityCards.map(card => card.toString())}`);
+                        this.displayCards();
+                        this.displayChipsBetsPot();
     
                         if (await this.bidding()) {
                             console.log();
@@ -523,6 +552,7 @@ class Game {
         let i;
         let player;
         let opponent;
+        let action;
     
         if (preflop) {
             i = this.sbPos;
@@ -537,17 +567,17 @@ class Game {
             } else if (opponent.chips === 0) {
                 console.log(`:::: ${this.user.name} bet: ${this.user.bet} | ${this.bot.name} bet: ${this.bot.bet} | total: ${this.pot}`);
                 if (player === this.user) {
-                    const [act, bet] = await player.askAction();
+                    action = await player.askAction();
                 } else {
-                    const [act, bet] = player.askAction();
+                    action = player.askAction();
                 }
-                if (act === 'call') {
+                if (action[0] === 'call') {
                     // Bet the full big blind
                     player.makeBet(this.bigBlind - player.bet);
                     console.log(`${opponent.name} is already all-in`);
                     this.bot.infoSet += 'c';
                     return true;
-                } else if (act === 'fold') {
+                } else if (action[0] === 'fold') {
                     player.fold = true;
                     console.log(`${player.name} has folded`);
                     this.bot.infoSet += 'p';
@@ -575,21 +605,21 @@ class Game {
             // console.log(`${player.toString()}`);
             
             if (player === this.user) {
-                const [act, bet] = await player.askAction();
+                action = await player.askAction();
             } else {
-                const [act, bet] = player.askAction();
+                action = player.askAction();
             }
             let propAct = false;
             asked++;
     
             while (!propAct) {
                 try {
-                    if (act === 'fold') {
+                    if (action[0] === 'fold') {
                         player.fold = true;
                         console.log(`${player.name} has folded`);
                         this.bot.infoSet += 'p';
                         return false;
-                    } else if (act === 'check') {
+                    } else if (action[0] === 'check') {
                         if (player.bet !== opponent.bet) {
                             throw new Error('Invalid action');
                         } else {
@@ -598,7 +628,7 @@ class Game {
                                 return true;
                             }
                         }
-                    } else if (act === 'call') {
+                    } else if (action[0] === 'call') {
                         if (player.bet < opponent.bet) {
                             this.bot.infoSet += 'c';
                             player.makeBet(opponent.bet - player.bet);
@@ -608,7 +638,8 @@ class Game {
                         if (asked >= 2) {
                             return true;
                         }
-                    } else if (act === 'raise') {
+                    } else if (action[0] === 'raise') {
+                        let bet = action[1];
                         if (opponent.chips === 0) {
                             throw new Error('Invalid action');
                         }
@@ -631,11 +662,13 @@ class Game {
                 } catch (error) {
                     console.log("Invalid action. Please try again.");
                     if (player === this.user) {
-                        const [act, bet] = await player.askAction();
+                        action = await player.askAction();
                     } else {
-                        const [act, bet] = player.askAction();
+                        action = player.askAction();
                     }
                 }
+
+                this.displayChipsBetsPot();
             }
     
             // Ask next
@@ -940,10 +973,17 @@ class Game {
 }
 
 const game = new Game();
-// game.play();
+game.play();
 
-game.user.holeCards = game.getRandomCards(game.deck.cards, 2);
-game.bot.holeCards = game.getRandomCards(game.deck.cards, 2);
-game.communityCards = game.getRandomCards(game.deck.cards, 4);
-game.displayCards();
-game.displayChipsBetsPot();
+// game.user.holeCards = game.getRandomCards(game.deck.cards, 2);
+// game.bot.holeCards = game.getRandomCards(game.deck.cards, 2);
+// game.communityCards = game.getRandomCards(game.deck.cards, 4);
+// game.displayCards();
+// game.displayChipsBetsPot();
+
+// let player = game.players[0];
+// let action;
+// action = player.askAction();
+
+// console.log(action);
+// console.log(action);
