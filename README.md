@@ -1,2 +1,2 @@
-# Poker-CFR
+# Poker-Trainer
 ![ui](assets/interface.png)
